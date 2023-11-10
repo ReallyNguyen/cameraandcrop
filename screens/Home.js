@@ -1,12 +1,62 @@
+import { StyleSheet, Text, View, Button } from 'react-native';
 import React, { useState, useRef } from 'react';
-import { View, Text, Button, Image } from 'react-native';
 import { Camera } from 'expo-camera';
 import { ImageManipulator } from 'expo-image-crop';
+import axios from 'axios';
 
-export default function App() {
+async function ocrSpace(input, options = {}) {
+    try {
+        if (!input || typeof input !== 'string') {
+            throw Error('Param input is required and must be of type string');
+        }
+
+        const {
+            apiKey,
+            ocrUrl,
+            language,
+            isOverlayRequired,
+            filetype,
+            detectOrientation,
+            isCreateSearchablePdf,
+            isSearchablePdfHideTextLayer,
+            scale,
+            isTable,
+            OCREngine,
+        } = options;
+
+        const formData = new FormData();
+        formData.append('base64Image', `data:image/png;base64,${input}`);
+        formData.append('language', String(language || 'eng'));
+        formData.append('isOverlayRequired', String(isOverlayRequired || 'false'));
+        if (filetype) {
+        formData.append('filetype', String(filetype));
+        }
+        formData.append('detectOrientation', String(detectOrientation || 'false'));
+        formData.append('isCreateSearchablePdf', String(isCreateSearchablePdf || 'false'));
+        formData.append('isSearchablePdfHideTextLayer', String(isSearchablePdfHideTextLayer || 'false'));
+        formData.append('scale', String(scale || 'false'));
+        formData.append('isTable', String(isTable || 'false'));
+        formData.append('OCREngine', String(OCREngine || '1'));
+
+        const response = await axios.post(ocrUrl, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'apikey': apiKey,
+            },
+        });
+
+        return response.data;
+    } 
+    catch (error) {
+        console.error(error);
+    }
+}
+
+export default function Home({ navigation }) {
     const [isVisible, setIsVisible] = useState(false);
     const [uri, setURI] = useState(null);
-    const [pre, setPre] = useState(null);
+    const [ocrResponse, setOcrResponse] = useState(null);
+    const [croppedImage, setCroppedImage] = useState(null);
     const cameraRef = useRef();
 
     const takePicture = async () => {
@@ -17,18 +67,38 @@ export default function App() {
         }
     };
 
+    const handleOCR = async (base64) => {
+        try {
+            if (!base64) {
+                throw new Error('base64 is missing or invalid');
+            }
+
+            const options = {
+                apiKey: 'K86472302488957',
+                ocrUrl: 'https://api.ocr.space/parse/image',
+            };
+
+            const response = await ocrSpace(base64, options);
+            console.log(response);
+            setOcrResponse(response.ParsedResults[0].ParsedText.replace(/(\r\n|\n|\r)/gm, ""));
+
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     return (
-        <View style={{ flex: 1 }}>
+        <View style={styles.container}>
             {isVisible ? (
                 <ImageManipulator
                     photo={{ uri }}
-                    saveOptions={{ "base64": true }}
+                    saveOptions={{ base64: true }}
                     isVisible={isVisible}
-                    onPictureChoosed={({ uri: uriM, base64 }) => {
-                        setPre(uriM);
+                    onPictureChoosed={async ({ uri: uriM, base64 }) => {
+                        setURI(uriM);
                         setIsVisible(false);
-                        console.log(base64);
-                        //do something with the base64 variable
+                        setCroppedImage(base64);
+                        await handleOCR(base64);
                     }}
                     onToggleModal={() => setIsVisible(!isVisible)}
                 />
@@ -52,7 +122,14 @@ export default function App() {
                 </Camera>
             )}
 
-            {pre && <Image source={{ uri: pre }} style={{ width: 200, height: 200, resizeMode: "contain" }} />}
+            {ocrResponse && <Text>{JSON.stringify(ocrResponse)}</Text>}
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+});
