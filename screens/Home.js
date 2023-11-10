@@ -29,7 +29,7 @@ async function ocrSpace(input, options = {}) {
         formData.append('language', String(language || 'eng'));
         formData.append('isOverlayRequired', String(isOverlayRequired || 'false'));
         if (filetype) {
-        formData.append('filetype', String(filetype));
+            formData.append('filetype', String(filetype));
         }
         formData.append('detectOrientation', String(detectOrientation || 'false'));
         formData.append('isCreateSearchablePdf', String(isCreateSearchablePdf || 'false'));
@@ -46,7 +46,7 @@ async function ocrSpace(input, options = {}) {
         });
 
         return response.data;
-    } 
+    }
     catch (error) {
         console.error(error);
     }
@@ -84,6 +84,15 @@ export default function Home({ navigation }) {
 
         } catch (error) {
             console.error(error);
+        }
+        try {
+            const response = await axios.post("https://lsswwzyavgt7egwvij52d2qkai0rseod.lambda-url.ca-central-1.on.aws/", {
+                question: `from this ${ocrResponse}, output only the names of food ingredients`
+            });
+
+            console.log('from my lambda', response.data.choices[0].message);
+        } catch (error) {
+            console.error('Error:', error.message);
         }
     };
 
@@ -128,8 +137,8 @@ export default function Home({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
 });
