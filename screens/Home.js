@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, Button } from 'react-native';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera } from 'expo-camera';
 import { ImageManipulator } from 'expo-image-crop';
 import axios from 'axios';
@@ -46,8 +46,7 @@ async function ocrSpace(input, options = {}) {
         });
 
         return response.data;
-    }
-    catch (error) {
+    } catch (error) {
         console.error(error);
     }
 }
@@ -57,6 +56,7 @@ export default function Home({ navigation }) {
     const [uri, setURI] = useState(null);
     const [ocrResponse, setOcrResponse] = useState(null);
     const [croppedImage, setCroppedImage] = useState(null);
+    const [lambdaMessage, setLambdaMessage] = useState(null);
     const cameraRef = useRef();
 
     const takePicture = async () => {
@@ -80,21 +80,37 @@ export default function Home({ navigation }) {
 
             const response = await ocrSpace(base64, options);
             console.log(response);
-            setOcrResponse(response.ParsedResults[0].ParsedText.replace(/(\r\n|\n|\r)/gm, ""));
+            setOcrResponse(response.ParsedResults[0].ParsedText.replace(/(\r\n|\n|\r)/gm, ''));
 
         } catch (error) {
             console.error(error);
         }
-        try {
-            const response = await axios.post("https://lsswwzyavgt7egwvij52d2qkai0rseod.lambda-url.ca-central-1.on.aws/", {
-                question: `from this ${ocrResponse}, output only the names of food ingredients`
-            });
-
-            console.log('from my lambda', response.data.choices[0].message);
-        } catch (error) {
-            console.error('Error:', error.message);
-        }
     };
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await axios.post(
+                    'https://lsswwzyavgt7egwvij52d2qkai0rseod.lambda-url.ca-central-1.on.aws/',
+                    {
+                        question: `from this ${ocrResponse}, display ingredients and make a meal out of it`,
+                    }
+                );
+
+                const message = response.data.choices[0].message;
+                console.log('from my lambda', message);
+                setLambdaMessage(message);
+
+            } catch (error) {
+                console.error('Error:', error.message);
+            }
+        };
+
+        if (ocrResponse !== null) {
+            fetchData();
+        }
+
+    }, [ocrResponse]);
 
     return (
         <View style={styles.container}>
@@ -112,11 +128,7 @@ export default function Home({ navigation }) {
                     onToggleModal={() => setIsVisible(!isVisible)}
                 />
             ) : (
-                <Camera
-                    style={{ flex: 1 }}
-                    type={Camera.Constants.Type.back}
-                    ref={cameraRef}
-                >
+                <Camera style={{ flex: 1 }} type={Camera.Constants.Type.back} ref={cameraRef}>
                     <View
                         style={{
                             flex: 1,
@@ -131,7 +143,9 @@ export default function Home({ navigation }) {
                 </Camera>
             )}
 
-            {ocrResponse && <Text>{JSON.stringify(ocrResponse)}</Text>}
+
+            {lambdaMessage && <Text>{JSON.stringify(lambdaMessage)}</Text>}
+
         </View>
     );
 }
